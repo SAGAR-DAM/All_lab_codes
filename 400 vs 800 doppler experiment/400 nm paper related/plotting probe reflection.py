@@ -21,7 +21,7 @@ linez = density(linex,liney,linez,0.5)
 mlab.figure(size=(600, 600), bgcolor=(1, 1, 1))
 
 # Plot isosurface
-src = mlab.contour3d(f, contours=200, opacity=0.02,colormap="jet")
+src = mlab.contour3d(f, contours=200, opacity=0.02,colormap="plasma")
 # Draw the line (black color, tube style)
 line = mlab.plot3d(linex*40,liney*10,linez*20/np.max(linez), color=(0, 0, 0), tube_radius=0.15)
 line.actor.actor.scale = [1, 10, 10]
