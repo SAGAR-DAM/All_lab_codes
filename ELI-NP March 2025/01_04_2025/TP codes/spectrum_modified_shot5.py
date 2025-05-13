@@ -141,6 +141,12 @@ log_image_cutoff = 7
 noise = np.mean(image[288:488,324:456])
 pixel_to_mm = 0.025
 
+
+read_time = 128   # in mnt
+fading_factor = (30/read_time)**(-0.161)    # from calibration formula
+solid_angle = 7e-8   # in Srad using dia of hole 200 um distance from tgt 450 mm
+
+
 # %%
 points = [[0, 0]]
 
@@ -335,7 +341,7 @@ for i in range(trace.shape[0]):
     PSL = sensitivity(Energy[i]) * angular_dependence(energy=Energy[i])
 
     if(i>=200):
-        count = s*PSL
+        count = s*PSL*fading_factor/solid_angle
     else:
         count = 0
     counts.append(count)
@@ -366,13 +372,14 @@ trace_cut = np.flip(trace_cut[:,L_low:L_high],axis=1)
 
 # %%
 
+
 fig, (ax_top, ax1) = plt.subplots(nrows=2, figsize=(12, 10), gridspec_kw={'height_ratios': [2, 3]})
 
 
 # --- Top subplot: horizontal image ---
 ax_top.imshow(np.log(trace_cut), cmap="jet", aspect=3, origin='lower')
 ax_top.axis("off")
-ax_top.set_title("Proton Count vs Energy (Spectrum)" + "\n" + imagepath[-45:] + "\n" + description)
+ax_top.set_title("Proton Count vs Energy (Spectrum)" + "\n" + imagepath[-45:] + "\n" + description+"\t"+f"fading time: {read_time}m")
 # ax_top.set_xlim(0, 1000)  # optional, or adjust as needed
 
 # --- Bottom subplot (your original plot) ---
@@ -382,7 +389,7 @@ p11 = ax1.axvline(x=cutoff_MeV, lw=3, linestyle="--", color="g", label="cutoff\n
 ax1.set_xscale("log")
 ax1.set_yscale("log")
 ax1.set_xlabel("Energy (MeV)\n" + f"Cutoff length: {magnetic_shift(cutoff_energy_from_spectrum)/mm:.2f} mm;  Cutoff energy: {cutoff_MeV:.3f} MeV")
-ax1.set_ylabel(r"Spectrum Counts:   $S(\epsilon)$", color="r")
+ax1.set_ylabel(r"Counts:   $S(\epsilon)=\frac{d^2N_{H^+}}{dE\ \cdot d\Omega }\ \ \text{(in MeV}^{-1}\cdot\text{Srad}^{-1})$", color="r")
 ax1.tick_params(axis='y', labelcolor='r')
 ax1.minorticks_on()
 ax1.grid(which='major', linestyle='-', linewidth=1.5, color='k')
@@ -414,7 +421,6 @@ secax.tick_params(axis='x', direction='out', length=5)
 # plt.title("Proton Count vs Energy (Spectrum)" + "\n" + imagepath[-45:] + "\n" + r"Flat 2$\mu$m")
 plt.tight_layout()
 plt.show()
-
 
 # %%
 
@@ -467,7 +473,7 @@ label1 = rf"Region 1"+"\n"+rf"$T = {T1_mant} \times 10^{{{T1_exp}}}\ \mathrm{{K}
 label2 = rf"Region 2"+"\n"+rf"$T = {T2_mant} \times 10^{{{T2_exp}}}\ \mathrm{{K}}$ or {E_fit2:.1f} MeV"
 
 
-
+# %%
 # --- Create figure with two rows ---
 fig, (ax_top, ax1) = plt.subplots(
     nrows=2, figsize=(12, 10), gridspec_kw={'height_ratios': [2, 3]}
@@ -476,7 +482,7 @@ fig, (ax_top, ax1) = plt.subplots(
 # --- Top subplot: horizontal image ---
 ax_top.imshow(np.log(trace_cut), cmap="jet", aspect=3, origin='lower')
 ax_top.axis("off")
-ax_top.set_title("ln(spectrum) vs Proton Energy\n" + imagepath[-50:] + "\n" + description)
+ax_top.set_title("Proton spectrum\n" + imagepath[-50:] + "\n" + description+"\t"+f"fading time: {read_time}m")
 
 # --- Bottom subplot: your original plot ---
 ax1.plot(Energy / keV_to_Joule / 1e3, counts, "k-", lw=2, label="Counts")
@@ -488,7 +494,7 @@ ax1.set_yscale("log")
 # ax1.set_xscale("log")  # you had it commented before
 
 ax1.set_xlabel("Energy (MeV)")
-ax1.set_ylabel("ln(Spectrum)")
+ax1.set_ylabel(r"Counts: $S(\epsilon)=\frac{d^2N_{proton}}{dE\ \cdot d\Omega }\ \ \text{(in MeV}^{-1}\cdot\text{Srad}^{-1})$")
 
 ax1.grid(True, which='major', linestyle='-', linewidth=1, color='k')
 ax1.minorticks_on()
@@ -514,3 +520,22 @@ secax.tick_params(axis='x', direction='out', length=5)
 # Final layout
 plt.tight_layout()
 plt.show()
+
+# %%
+
+import os
+
+data = np.column_stack((Energy / keV_to_Joule / 1e3, counts))
+script_path = os.path.abspath(__file__)
+parent_dir = os.path.dirname(os.path.dirname(script_path))
+print("Script file path:", parent_dir)
+
+# Save to a text file
+# Sanitize description by replacing LaTeX \mu with 'u'
+description_clean = description.replace(r'\mu', 'u').replace('$', '')
+txtfilename = f"{description_clean}_{script_path[-8:-3]}.txt"
+
+np.savetxt(fr"{parent_dir}\separated out TP images\{txtfilename}", data, fmt='%.5f', header='Energy(MeV) Flux(/MeV/Srad)', comments='')
+
+print(f"Data saved to {txtfilename} in column format.")
+
